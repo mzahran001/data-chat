@@ -3,3 +3,4 @@ pandas==1.5.3
 pandasai==2.4.1
 langchain-openai==0.2.14
 matplotlib==3.10.0
+pymongo==4.10.1
