@@ -25,7 +25,7 @@ def bypass_security():
 # Initialize your LLM and SmartDataframe (adjust configuration as needed)
 def setup_smart_dataframe():
     # Replace this with the path to your dataset
-    data_path = "PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
+    data_path = "data/PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
     data = pd.read_csv(data_path)
 
     # Convert date fields to datetime
@@ -301,9 +301,9 @@ def main():
         st.write(metrics)
 
         # Optionally save results to a file
-        results_df.to_csv("evaluation_results.csv", index=False)
+        results_df.to_csv("data/evaluation_results.csv", index=False)
         st.success(
-            "Evaluation completed and results saved to 'evaluation_results.csv'."
+            "Evaluation completed and results saved to 'data/evaluation_results.csv'."
         )
 
 

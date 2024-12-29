@@ -9,7 +9,7 @@ COLLECTION_NAME = "order_data"
 
 # Data Processing Configuration
 BATCH_SIZE = 5000
-CSV_FILE_PATH = "../data/PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
+CSV_FILE_PATH = "./data/PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
 
 # Application Settings
 CACHE_TTL = 3600  # Cache lifetime in seconds

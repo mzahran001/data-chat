@@ -5,7 +5,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from tqdm import tqdm
 
-from .config import BATCH_SIZE, COLLECTION_NAME, CSV_FILE_PATH, DB_NAME, MONGODB_URI
+from config import BATCH_SIZE, COLLECTION_NAME, CSV_FILE_PATH, DB_NAME, MONGODB_URI
 
 
 class MongoDBHandler:

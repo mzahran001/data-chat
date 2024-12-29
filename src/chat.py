@@ -10,7 +10,7 @@ from pandasai.smart_dataframe import SmartDataframe
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
-from .config import COLLECTION_NAME, CSV_FILE_PATH, DB_NAME, MONGODB_URI
+from config import COLLECTION_NAME, CSV_FILE_PATH, DB_NAME, MONGODB_URI
 
 
 class SecurityBypass:
