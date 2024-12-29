@@ -36,33 +36,8 @@ class DataLoader:
     """Handles data loading and cleaning operations."""
 
     @staticmethod
-    @st.cache_data
-    def load_and_clean_data():
-        """Load data from CSV or MongoDB and perform cleaning operations."""
-        data_path = CSV_FILE_PATH
-
-        try:
-            # Check if CSV file exists
-            if os.path.exists(data_path):
-                print("Loading data from CSV file...")
-                data = pd.read_csv(data_path)
-            else:
-                print("CSV file not found. Loading data from MongoDB...")
-                # MongoDB connection URI
-                uri = MONGODB_URI
-
-                # Connect to MongoDB
-                client = MongoClient(uri, server_api=ServerApi("1"))
-
-                # Fetch data from MongoDB
-                db = client[DB_NAME]
-                collection = db[COLLECTION_NAME]
-                data = pd.DataFrame(list(collection.find()))
-
-        except Exception as e:
-            st.error(f"Error loading data: {str(e)}")
-            raise
-
+    def clean_data(data):
+        """Clean and process the data."""
         # Convert date fields to datetime
         date_columns = ["Creation Date", "Purchase Date"]
         for col in date_columns:
@@ -116,6 +91,34 @@ class DataLoader:
                 data[col] = data[col].astype("category")
 
         return data
+
+    @staticmethod
+    @st.cache_data
+    def load_and_clean_data(uploaded_file=None):
+        """Load data from uploaded file, CSV, or MongoDB and perform cleaning operations."""
+        try:
+            if uploaded_file is not None:
+                print("Loading data from uploaded file...")
+                data = pd.read_csv(uploaded_file)
+            else:
+                data_path = CSV_FILE_PATH
+                if os.path.exists(data_path):
+                    print("Loading data from CSV file...")
+                    data = pd.read_csv(data_path)
+                else:
+                    print("CSV file not found. Loading data from MongoDB...")
+                    # MongoDB connection URI
+                    uri = MONGODB_URI
+                    client = MongoClient(uri, server_api=ServerApi("1"))
+                    db = client[DB_NAME]
+                    collection = db[COLLECTION_NAME]
+                    data = pd.DataFrame(list(collection.find()))
+
+            return DataLoader.clean_data(data)
+
+        except Exception as e:
+            st.error(f"Error loading data: {str(e)}")
+            raise
 
 
 class LangChainSetup:
@@ -222,8 +225,27 @@ Feel free to type these questions or explore your own!"""
         """
         )
 
-        data = DataLoader.load_and_clean_data()
-        llm = LangChainSetup.setup_pandasai()
+        # Add file upload option
+        uploaded_file = st.file_uploader("Upload your own CSV file (optional)", type=['csv'])
+
+        # Add load data button with upload handling
+        if st.button("Load Data"):
+            with st.spinner("Loading data..."):
+                data = DataLoader.load_and_clean_data(uploaded_file)
+                llm = LangChainSetup.setup_pandasai()
+
+                # Store the loaded data and llm in session state
+                st.session_state['data'] = data
+                st.session_state['llm'] = llm
+                st.success("Data loaded successfully!")
+
+        # Check if data is loaded
+        if 'data' not in st.session_state:
+            st.warning("Please click the 'Load Data' button to load the dataset.")
+            return
+
+        data = st.session_state['data']
+        llm = st.session_state['llm']
 
         smart_df = SmartDataframe(
             data,
@@ -242,6 +264,7 @@ Feel free to type these questions or explore your own!"""
 
         with st.expander("View Sample Data (10 rows)"):
             st.write(data.head(10))
+
         # Display example questions
         with st.expander("Example Questions to Inspire You"):
             self.display_example_questions()
