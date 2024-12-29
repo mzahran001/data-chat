@@ -94,7 +94,7 @@ class DataLoader:
 
     @staticmethod
     @st.cache_data
-    def load_and_clean_data(uploaded_file=None):
+    def load_data(uploaded_file=None):
         """Load data from uploaded file, CSV, or MongoDB and perform cleaning operations."""
         try:
             if uploaded_file is not None:
@@ -231,7 +231,7 @@ Feel free to type these questions or explore your own!"""
         # Add load data button with upload handling
         if st.button("Load Data"):
             with st.spinner("Loading data..."):
-                data = DataLoader.load_and_clean_data(uploaded_file)
+                data = DataLoader.load_data(uploaded_file)
                 llm = LangChainSetup.setup_pandasai()
 
                 # Store the loaded data and llm in session state
