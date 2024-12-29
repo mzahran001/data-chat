@@ -10,120 +10,135 @@ from pandasai.smart_dataframe import SmartDataframe
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
-
-def bypass_security():
-    def wrapper(func):
-        def wrapped_function(*args, **kwargs):
-            # Bypass security checks
-            return func(*args, **kwargs)
-
-        return wrapped_function
-
-    def wrap_function(func, *args, **kwargs):
-        return wrapper(func)
-
-    brm.BaseRestrictedModule._wrap_function = staticmethod(wrap_function)
+from config import COLLECTION_NAME, CSV_FILE_PATH, DB_NAME, MONGODB_URI
 
 
-bypass_security()
+class SecurityBypass:
+    """Utility class to bypass PandasAI security restrictions."""
+
+    @staticmethod
+    def bypass_security():
+        """Bypass PandasAI security checks for custom visualizations."""
+
+        def wrapper(func):
+            def wrapped_function(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            return wrapped_function
+
+        def wrap_function(func, *args, **kwargs):
+            return wrapper(func)
+
+        brm.BaseRestrictedModule._wrap_function = staticmethod(wrap_function)
 
 
-# Load and clean the procurement dataset
-@st.cache_data
-def load_and_clean_data():
-    data_path = "PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
+class DataLoader:
+    """Handles data loading and cleaning operations."""
 
-    try:
-        # Check if CSV file exists
-        if os.path.exists(data_path):
-            print("Loading data from CSV file...")
-            data = pd.read_csv(data_path)
-        else:
-            print("CSV file not found. Loading data from MongoDB...")
-            # MongoDB connection URI
-            uri = f"mongodb+srv://{st.secrets['db_username']}:{st.secrets['db_password']}@cluster0.nzc35.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    @staticmethod
+    @st.cache_data
+    def load_and_clean_data():
+        """Load data from CSV or MongoDB and perform cleaning operations."""
+        data_path = CSV_FILE_PATH
 
-            # Connect to MongoDB
-            client = MongoClient(uri, server_api=ServerApi("1"))
+        try:
+            # Check if CSV file exists
+            if os.path.exists(data_path):
+                print("Loading data from CSV file...")
+                data = pd.read_csv(data_path)
+            else:
+                print("CSV file not found. Loading data from MongoDB...")
+                # MongoDB connection URI
+                uri = MONGODB_URI
 
-            # Fetch data from MongoDB
-            db = client["purchase_orders"]
-            collection = db["order_data"]
-            data = pd.DataFrame(list(collection.find()))
+                # Connect to MongoDB
+                client = MongoClient(uri, server_api=ServerApi("1"))
 
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        raise
+                # Fetch data from MongoDB
+                db = client[DB_NAME]
+                collection = db[COLLECTION_NAME]
+                data = pd.DataFrame(list(collection.find()))
 
-    # Convert date fields to datetime
-    date_columns = ["Creation Date", "Purchase Date"]
-    for col in date_columns:
-        if col in data.columns:
-            data[col] = pd.to_datetime(data[col], errors="coerce").dt.strftime(
-                "%Y-%m-%d"
-            )
+        except Exception as e:
+            st.error(f"Error loading data: {str(e)}")
+            raise
 
-    # Remove dollar signs and convert to numeric
-    price_columns = ["Unit Price", "Total Price"]
-    for col in price_columns:
-        if col in data.columns:
-            data[col] = data[col].replace(r"[\$,]", "", regex=True).astype(float)
+        # Convert date fields to datetime
+        date_columns = ["Creation Date", "Purchase Date"]
+        for col in date_columns:
+            if col in data.columns:
+                data[col] = pd.to_datetime(data[col], errors="coerce").dt.strftime(
+                    "%Y-%m-%d"
+                )
 
-    # Convert numeric fields
-    numeric_columns = ["Quantity"]
-    for col in numeric_columns:
-        if col in data.columns:
-            data[col] = pd.to_numeric(data[col], errors="coerce")
+        # Remove dollar signs and convert to numeric
+        price_columns = ["Unit Price", "Total Price"]
+        for col in price_columns:
+            if col in data.columns:
+                data[col] = data[col].replace(r"[\$,]", "", regex=True).astype(float)
 
-    # Convert categorical fields
-    categorical_columns = [
-        "Fiscal Year",
-        "Acquisition Type",
-        "Sub-Acquisition Type",
-        "Acquisition Method",
-        "Sub-Acquisition Method",
-        "Department Name",
-        "Supplier Qualifications",
-        "Commodity Title",
-        "Class Title",
-        "Family Title",
-        "Segment Title",
-        "CalCard",
-        "LPA Number",
-        "Purchase Order Number",
-        "Requisition Number",
-        "Supplier Code",
-        "Supplier Name",
-        "Supplier Zip Code",
-        "Item Name",
-        "Item Description",
-        "Classification Codes",
-        "Normalized UNSPSC",
-        "Class",
-        "Family",
-        "Segment",
-    ]
-    for col in categorical_columns:
-        if col in data.columns:
-            data[col] = data[col].astype("category")
+        # Convert numeric fields
+        numeric_columns = ["Quantity"]
+        for col in numeric_columns:
+            if col in data.columns:
+                data[col] = pd.to_numeric(data[col], errors="coerce")
 
-    return data
+        # Convert categorical fields
+        categorical_columns = [
+            "Fiscal Year",
+            "Acquisition Type",
+            "Sub-Acquisition Type",
+            "Acquisition Method",
+            "Sub-Acquisition Method",
+            "Department Name",
+            "Supplier Qualifications",
+            "Commodity Title",
+            "Class Title",
+            "Family Title",
+            "Segment Title",
+            "CalCard",
+            "LPA Number",
+            "Purchase Order Number",
+            "Requisition Number",
+            "Supplier Code",
+            "Supplier Name",
+            "Supplier Zip Code",
+            "Item Name",
+            "Item Description",
+            "Classification Codes",
+            "Normalized UNSPSC",
+            "Class",
+            "Family",
+            "Segment",
+        ]
+        for col in categorical_columns:
+            if col in data.columns:
+                data[col] = data[col].astype("category")
 
-
-# Cache the LangChain LLM setup
-@st.cache_resource
-def setup_pandasai():
-    openai_api_key = st.secrets[
-        "openai_api_key"
-    ]  # Store your API key in Streamlit secrets
-    langchain_llm = ChatOpenAI(
-        openai_api_key=openai_api_key, model="gpt-4o-2024-11-20", temperature=0
-    )
-    return langchain_llm
+        return data
 
 
-# Define dataset description and column mapping
-dataset_metadata = """
+class LangChainSetup:
+    """Handles LangChain setup and configuration."""
+
+    @staticmethod
+    @st.cache_resource
+    def setup_pandasai():
+        """Set up LangChain with PandasAI integration."""
+        openai_api_key = st.secrets[
+            "openai_api_key"
+        ]  # Store your API key in Streamlit secrets
+        langchain_llm = ChatOpenAI(
+            openai_api_key=openai_api_key, model="gpt-4o-2024-11-20", temperature=0
+        )
+        return langchain_llm
+
+
+class ProcurementApp:
+    """Streamlit-based procurement data query assistant."""
+
+    def __init__(self):
+        self.dataset_metadata = """
 This dataset includes detailed procurement records from the California Department of General Services (DGS) spanning fiscal years 2012 to 2015. It provides insights into supplier information, item classification, and acquisition methods.
 
 Metadata Overview:
@@ -177,10 +192,10 @@ Notes:
 - Classification Codes: Correlates to UNSPSC v14, ensuring accurate item categorization.
 """
 
-
-def display_example_questions():
-    st.markdown(
-        """### Example Questions to Try:
+    def display_example_questions(self):
+        """Display example questions for users."""
+        st.markdown(
+            """### Example Questions to Try:
 
 1. What is the total spend in Fiscal Year 2013-2014?
 2. List the acquisition methods used in Fiscal Year 2013-2014.
@@ -194,94 +209,95 @@ def display_example_questions():
 10. How does the total spend vary across acquisition types in Fiscal Year 2014-2015?
 
 Feel free to type these questions or explore your own!"""
-    )
+        )
 
+    def main(self):
+        """Main application logic."""
+        st.title("Procurement Data Query Assistant")
 
-# Main application logic
-def main():
-    st.title("Procurement Data Query Assistant")
-
-    st.markdown(
+        st.markdown(
+            """
+            This application allows you to interact with procurement data from 2012-2015.
+            Type your queries in natural language or request visualizations.
         """
-        This application allows you to interact with procurement data from 2012-2015.
-        Type your queries in natural language or request visualizations.
-    """
-    )
+        )
 
-    data = load_and_clean_data()
-    llm = setup_pandasai()
+        data = DataLoader.load_and_clean_data()
+        llm = LangChainSetup.setup_pandasai()
 
-    smart_df = SmartDataframe(
-        data,
-        name="Procurement Dataset",
-        description=dataset_metadata,
-        config={
-            "llm": llm,
-            "response_parser": StreamlitResponse,
-            "enable_cache": True,
-            "verbose": True,
-            "save_charts": False,
-            "open_charts": False,
-            "custom_whitelisted_dependencies": ["scikit-learn", "plotly"],
-        },
-    )
+        smart_df = SmartDataframe(
+            data,
+            name="Procurement Dataset",
+            description=self.dataset_metadata,
+            config={
+                "llm": llm,
+                "response_parser": StreamlitResponse,
+                "enable_cache": True,
+                "verbose": True,
+                "save_charts": False,
+                "open_charts": False,
+                "custom_whitelisted_dependencies": ["scikit-learn", "plotly"],
+            },
+        )
 
-    with st.expander("View Sample Data (10 rows)"):
-        st.write(data.head(10))
-    # Display example questions
-    with st.expander("Example Questions to Inspire You"):
-        display_example_questions()
+        with st.expander("View Sample Data (10 rows)"):
+            st.write(data.head(10))
+        # Display example questions
+        with st.expander("Example Questions to Inspire You"):
+            self.display_example_questions()
 
-    query = st.text_input("Enter your query:")
-    if query:
-        with st.spinner("Processing your query..."):
-            try:
-                # Get both the result and the generated code
-                result = smart_df.chat(query)
-                generated_code = smart_df.last_code_generated
+        query = st.text_input("Enter your query:")
+        if query:
+            with st.spinner("Processing your query..."):
+                try:
+                    # Get both the result and the generated code
+                    result = smart_df.chat(query)
+                    generated_code = smart_df.last_code_generated
 
-                # Display the result
-                st.success("Query Processed!")
-                st.write("### Result:")
+                    # Display the result
+                    st.success("Query Processed!")
+                    st.write("### Result:")
 
-                # Handle different result types
-                if isinstance(result, pd.DataFrame):
-                    st.dataframe(result)
-                elif isinstance(result, str):
-                    if result.startswith("data:image/png;base64,"):
-                        st.image(result.split(",")[1])
-                    elif result.endswith(".png"):
-                        st.image(
-                            result,
-                        )
+                    # Handle different result types
+                    if isinstance(result, pd.DataFrame):
+                        st.dataframe(result)
+                    elif isinstance(result, str):
+                        if result.startswith("data:image/png;base64,"):
+                            st.image(result.split(",")[1])
+                        elif result.endswith(".png"):
+                            st.image(
+                                result,
+                            )
+                        else:
+                            st.write(result)
+                    elif isinstance(result, dict) and "type" in result:
+                        # Handle PandasAI response dictionary
+                        if result["type"] == "plot":
+                            if isinstance(result["value"], str):
+                                if result["value"].startswith("data:image/png;base64,"):
+                                    st.image(
+                                        result["value"].split(",")[1],
+                                    )
+                                else:
+                                    st.image(
+                                        result["value"],
+                                    )
+                        elif result["type"] == "dataframe":
+                            st.dataframe(result["value"])
+                        else:
+                            st.write(result["value"])
                     else:
                         st.write(result)
-                elif isinstance(result, dict) and "type" in result:
-                    # Handle PandasAI response dictionary
-                    if result["type"] == "plot":
-                        if isinstance(result["value"], str):
-                            if result["value"].startswith("data:image/png;base64,"):
-                                st.image(
-                                    result["value"].split(",")[1],
-                                )
-                            else:
-                                st.image(
-                                    result["value"],
-                                )
-                    elif result["type"] == "dataframe":
-                        st.dataframe(result["value"])
-                    else:
-                        st.write(result["value"])
-                else:
-                    st.write(result)
 
-                # Display the generated code in an expander
-                with st.expander("View Generated Code"):
-                    st.code(generated_code, language="python")
+                    # Display the generated code in an expander
+                    with st.expander("View Generated Code"):
+                        st.code(generated_code, language="python")
 
-            except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
 
 
 if __name__ == "__main__":
-    main()
+    SecurityBypass.bypass_security()  # Initialize security bypass
+    app = ProcurementApp()
+    app.main()
