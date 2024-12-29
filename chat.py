@@ -1,12 +1,14 @@
-import streamlit as st
+import os
+
+import matplotlib.pyplot as plt
 import pandas as pd
-from pandasai.smart_dataframe import SmartDataframe
+import pandasai.safe_libs.base_restricted_module as brm
+import streamlit as st
 from langchain_openai import ChatOpenAI
 from pandasai.responses.streamlit_response import StreamlitResponse
-import matplotlib.pyplot as plt
-
-# Override security settings in PandasAI
-import pandasai.safe_libs.base_restricted_module as brm
+from pandasai.smart_dataframe import SmartDataframe
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
 
 def bypass_security():
@@ -29,10 +31,29 @@ bypass_security()
 # Load and clean the procurement dataset
 @st.cache_data
 def load_and_clean_data():
-    data_path = (
-        "PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"  # Replace with your file path
-    )
-    data = pd.read_csv(data_path)
+    data_path = "PURCHASE_ORDER_DATA_EXTRACT_2012-2015_0.csv"
+
+    try:
+        # Check if CSV file exists
+        if os.path.exists(data_path):
+            print("Loading data from CSV file...")
+            data = pd.read_csv(data_path)
+        else:
+            print("CSV file not found. Loading data from MongoDB...")
+            # MongoDB connection URI
+            uri = f"mongodb+srv://{st.secrets['db_username']}:{st.secrets['db_password']}@cluster0.nzc35.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+
+            # Connect to MongoDB
+            client = MongoClient(uri, server_api=ServerApi("1"))
+
+            # Fetch data from MongoDB
+            db = client["purchase_orders"]
+            collection = db["order_data"]
+            data = pd.DataFrame(list(collection.find()))
+
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        raise
 
     # Convert date fields to datetime
     date_columns = ["Creation Date", "Purchase Date"]
