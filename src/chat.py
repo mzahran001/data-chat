@@ -1,15 +1,13 @@
 import os
 import json
-import logging  # Retained for essential logging
+import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import pandasai.safe_libs.base_restricted_module as brm
 import streamlit as st
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from langchain_core.output_parsers.pydantic import (
-    PydanticOutputParser,
-)
+from langchain_core.output_parsers.pydantic import PydanticOutputParser
 from pandasai.responses.streamlit_response import StreamlitResponse
 from pandasai.smart_dataframe import SmartDataframe
 from pymongo.mongo_client import MongoClient
@@ -75,7 +73,7 @@ class LangChainQueryTranslator:
             # Initialize the ChatOpenAI LLM
             self.llm = ChatOpenAI(
                 openai_api_key=openai_api_key,
-                model="gpt-4o",  # Keeping the original model name as per request
+                model="gpt-4o",  # Keeping the original model name
                 temperature=0,
             )
             logger.info("ChatOpenAI initialized successfully.")
@@ -86,7 +84,6 @@ class LangChainQueryTranslator:
             )
             logger.info("PydanticOutputParser initialized successfully.")
 
-            # Define the prompt template with format instructions
             self.prompt = ChatPromptTemplate.from_messages(
                 [
                     (
@@ -94,6 +91,7 @@ class LangChainQueryTranslator:
                         "You are an intelligent assistant designed to translate natural language queries into MongoDB query filters in JSON format.\n\n"
                         "Here is the detailed schema of the dataset you will be querying:\n{dataset_metadata}\n\n"
                         "Translate the following user query into a MongoDB query filter that accurately retrieves the desired data. "
+                        "**If the query does not specify any filterable condition (like Fiscal Year, Department Name, Supplier Name, etc.), return an empty filter (`{{}}`).** "
                         "The output must be a JSON object with a top-level 'filter' key. **Do not include any markdown formatting or code blocks.**\n\n"
                         "{format_instructions}",
                     ),
@@ -124,7 +122,6 @@ class LangChainQueryTranslator:
         """
         logger.info("Translating user query into MongoDB filter.")
         try:
-            # Invoke the chain with the user query and dataset metadata
             response = self.chain.invoke(
                 {"user_query": user_query, "dataset_metadata": dataset_metadata}
             )
@@ -139,9 +136,11 @@ class LangChainQueryTranslator:
             logger.info("Query translated successfully.")
             return mongo_query
 
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decoding error: {e}")
-            st.error(f"Error parsing JSON: {e}")
+        except (json.JSONDecodeError, ValueError) as e:
+            # Fallback to empty filter if something invalid is returned
+            logger.error(
+                f"Translator returned invalid JSON, defaulting to empty filter: {e}"
+            )
             return {}
         except Exception as e:
             logger.error(f"Error translating query: {e}")
@@ -242,13 +241,11 @@ class DataLoader:
 
     @staticmethod
     @st.cache_data(ttl=3600)
-    def load_data(
-        _mongo_handler, mongo_query
-    ):  # Renamed argument to prevent caching error
+    def load_data(_mongo_handler, mongo_query):
         """Load data from MongoDB based on the provided query and perform cleaning operations.
 
         Args:
-            _mongo_handler (MongoDBHandler): Instance of MongoDBHandler. _ prefix to prevent caching.
+            _mongo_handler (MongoDBHandler): Instance of MongoDBHandler. _ prefix to prevent caching collision.
             mongo_query (dict): MongoDB query filter.
 
         Returns:
@@ -317,8 +314,7 @@ This dataset includes detailed procurement records from the California Departmen
 
 **Data Types:**
 1. **Date Fields**:
-   - `Creation Date`: System-generated date.
-   - `Purchase Date`: User-entered date; may be backdated.
+   - `Creation Date`, `Purchase Date`
 2. **Numeric Fields**:
    - `Unit Price`, `Total Price` (Float)
    - `Quantity` (Integer)
@@ -362,34 +358,34 @@ Feel free to type these questions or explore your own!"""
         st.markdown(
             """
 **Supplier Information:**
-- `Supplier Code` (String): Unique identifier for suppliers.
-- `Supplier Name` (String): Registered name of the supplier.
-- `Supplier Qualifications` (Categorical): Certifications like SB, DVBE, NP, MB.
-- `Supplier Zip Code` (String): ZIP code of the supplier's address.
+- `Supplier Code` (String)
+- `Supplier Name` (String)
+- `Supplier Qualifications` (Categorical)
+- `Supplier Zip Code` (String)
 
 **Acquisition Details:**
-- `Fiscal Year` (String): Fiscal Year derived from 'Creation Date.'
-- `Acquisition Type` (Categorical): Non-IT Goods, Non-IT Services, IT Goods, IT Services.
-- `Acquisition Method` (Categorical): Methods like CMAS, Statewide Contracts, Emergency Purchases, etc.
+- `Fiscal Year` (String)
+- `Acquisition Type` (Categorical)
+- `Acquisition Method` (Categorical)
 
 **Item Details:**
-- `Item Name` (String): Name of the purchased item.
-- `Item Description` (String): Description of the purchased item.
-- `Quantity` (Integer): Number of items purchased.
-- `Unit Price` (Float): Price per unit.
-- `Total Price` (Float): Total price excluding taxes and shipping.
-- `Normalized UNSPSC` (String): UNSPSC classification codes.
+- `Item Name` (String)
+- `Item Description` (String)
+- `Quantity` (Integer)
+- `Unit Price` (Float)
+- `Total Price` (Float)
+- `Normalized UNSPSC` (String)
 
 **Date Fields:**
-- `Creation Date` (Date): System-generated date of record creation.
-- `Purchase Date` (Date): User-entered date of purchase; may be backdated.
+- `Creation Date` (Date)
+- `Purchase Date` (Date)
 
 **Department Details:**
-- `Department Name` (String): Name of the purchasing department.
+- `Department Name` (String)
 
 **Miscellaneous:**
-- `CalCard` (Boolean): Indicates if a state credit card was used.
-- `LPA Number`, `Purchase Order Number`, `Requisition Number` (String): Various identifiers.
+- `CalCard` (Boolean)
+- `LPA Number`, `Purchase Order Number`, `Requisition Number` (String)
 """
         )
         logger.info("Schema information displayed successfully.")
@@ -401,7 +397,7 @@ Feel free to type these questions or explore your own!"""
 
         st.markdown(
             """
-            This application allows you to interact with procurement data from 2012-2015.
+            This application allows you to interact with procurement data from 2012–2015.
             Type your queries in natural language to analyze procurement data.
         """
         )
@@ -462,9 +458,8 @@ Feel free to type these questions or explore your own!"""
                     user_query=query, dataset_metadata=self.dataset_metadata
                 )
 
-                if mongo_query:
+                if mongo_query is not None:
                     try:
-                        # Load data based on the translated MongoDB query
                         logger.info("Loading data based on MongoDB query.")
                         data = DataLoader.load_data(mongo_handler, mongo_query)
 
@@ -535,11 +530,10 @@ Feel free to type these questions or explore your own!"""
                     logger.error("Failed to translate the query into a MongoDB filter.")
                     st.error("Failed to translate the query into a MongoDB filter.")
 
-        # Optionally, display sample data (static sample or based on recent queries)
+        # Optionally, display sample data (10 rows)
         with st.expander("View Sample Data (10 rows)"):
             try:
                 logger.info("Fetching sample data from MongoDB.")
-                # Optionally, fetch a small sample from MongoDB
                 sample_query = {}  # Empty query to fetch any sample
                 sample_data = DataLoader.load_data(mongo_handler, sample_query).head(10)
                 if not sample_data.empty:
