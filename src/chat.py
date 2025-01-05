@@ -1,22 +1,19 @@
-import os
 import json
 import logging
+from typing import Any, Dict
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import pandasai.safe_libs.base_restricted_module as brm
 import streamlit as st
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers.pydantic import PydanticOutputParser
+from langchain_openai import ChatOpenAI
 from pandasai.responses.streamlit_response import StreamlitResponse
 from pandasai.smart_dataframe import SmartDataframe
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-
-from config import COLLECTION_NAME, DB_NAME, MONGODB_URI
-from mongodb import MongoDBHandler
-from typing import Any, Dict, Optional, List, Union
 from pydantic import BaseModel, Field
+
+from mongodb import MongoDBHandler
 
 # Configure logging
 logging.basicConfig(
