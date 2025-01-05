@@ -39,27 +39,6 @@ class MongoDBQueryFilter(BaseModel):
         description = "A filter schema for querying MongoDB collections."
 
 
-class SecurityBypass:
-    """Utility class to bypass PandasAI security restrictions."""
-
-    @staticmethod
-    def bypass_security():
-        """Bypass PandasAI security checks for custom visualizations."""
-        logger.info("Applying PandasAI security bypass.")
-
-        def wrapper(func):
-            def wrapped_function(*args, **kwargs):
-                return func(*args, **kwargs)
-
-            return wrapped_function
-
-        def wrap_function(func, *args, **kwargs):
-            return wrapper(func)
-
-        brm.BaseRestrictedModule._wrap_function = staticmethod(wrap_function)
-        logger.info("PandasAI security bypass applied successfully.")
-
-
 class LangChainQueryTranslator:
     """Translates natural language queries into MongoDB queries using LangChain with structured output."""
 
@@ -143,6 +122,27 @@ class LangChainQueryTranslator:
             logger.error(f"Error translating query: {e}")
             st.error(f"Error translating query: {e}")
             return {}
+
+
+class SecurityBypass:
+    """Utility class to bypass PandasAI security restrictions."""
+
+    @staticmethod
+    def bypass_security():
+        """Bypass PandasAI security checks for custom visualizations."""
+        logger.info("Applying PandasAI security bypass.")
+
+        def wrapper(func):
+            def wrapped_function(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            return wrapped_function
+
+        def wrap_function(func, *args, **kwargs):
+            return wrapper(func)
+
+        brm.BaseRestrictedModule._wrap_function = staticmethod(wrap_function)
+        logger.info("PandasAI security bypass applied successfully.")
 
 
 class LangChainSetup:
